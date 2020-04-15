@@ -1,5 +1,5 @@
-# p4api
-With p4api, you can execute Perforce commands according to 4 modes in your choice:
+# np4
+With np4, you can execute Perforce commands according to 4 modes in your choice:
 
 |                    | Async command  | Sync command |
 |:--------------:    |:-------------  |:------------|
@@ -9,8 +9,6 @@ With p4api, you can execute Perforce commands according to 4 modes in your choic
 Asynchronous command returns a  promise wich will be resolved with the Perforce result 
 while sync command is blocked until Perforce has returned a result. 
 
-Promise returned with Sync command can be canceled with ```cancel()``` method, killing launched p4 process.
-
 Marshal syntax consists to use global -G option allowing to provide input and receive result as a JS object.<br/>
 Raw syntax uses basic text format.<br/>
 *Note that only login command accepts input parameter (password) as a string in both Marshal and Raw modes.*  
@@ -18,55 +16,54 @@ Raw syntax uses basic text format.<br/>
 If P4VC is installed, you will be able to launch any p4vc command with ```visual()``` method 
 wich returns a promise wich is resolved when p4vc has closed.
 
-All these method belong to class P4 provided by the module p4api: [See detail here](#p4-object) 
+All these method belong to class P4 provided by the module np4: [See detail here](#p4-object) 
 
 
 
 ---
-- [Installation](#installation)
-- [Development](#development)
-- [P4 object](#p4-object)
-  * [Contructor](#contructor)
-  * [Attributs](#attributs)
-  * [Methods](#methods)
-    + [Change environment variables](#change-environment-variables)
-    + [Marshal syntax commands](#marshal-syntax-commands)
-    + [Row syntax commands](#row-syntax-commands)
-  * [Error handling](#error-handling)
-    + [Cancellation feature](#cancellation-feature)
-- [Examples](#examples)
-  * [List of depots](#list-of-depots)
-  * [Command Error](#command-error)
-  * [Login (command with prompt and input)](#login-command-with-prompt-and-input)
-  * [Check Login (command with param)](#check-login-command-with-param)
-  * [Clear viewpathes of the current Client](#clear-viewpathes-of-the-current-client)
-  * [Cancellation](#cancellation)
+- [np4](#np4)
+  - [Installation](#installation)
+  - [Development](#development)
+  - [P4 object](#p4-object)
+    - [Contructor](#contructor)
+    - [Static Attributs](#static-attributs)
+    - [Methods](#methods)
+      - [Change environment variables](#change-environment-variables)
+      - [Marshal syntax commands](#marshal-syntax-commands)
+    - [Error handling](#error-handling)
+  - [Examples](#examples)
+    - [List of depots](#list-of-depots)
+    - [Command Error](#command-error)
+    - [Login (command with prompt and input)](#login-command-with-prompt-and-input)
+    - [Check Login (command with param)](#check-login-command-with-param)
+    - [Clear viewpathes of the current Client](#clear-viewpathes-of-the-current-client)
+    - [Cancellation](#cancellation)
 ---
 ## Installation
 Get the module from NPM
 ``` bash
-$ npm install p4api --save
+$ npm install np4 --save
 ```
 
 ## Development
-Use build action (npm or yarn) to build lib/p4api.js.
+Use build action (npm or yarn) to build lib/np4.js.
 
 To test it, you need to have installed "Helix Core Apps" and "Helix Versioning Engine" (p4 & p4d). 
 
 ## P4 object
 ### Contructor
 ``` javascript
-import {P4} from "p4api"
+import {P4} from "np4"
 const p4 = new P4(option)
 ```
 or
 ``` javascript
-const P4 = require("p4api").P4
+const P4 = require("np4").P4
 const p4 = new P4(option)
 ```
 where option is a set of P4 variables to apply as context when executing p4 commands:
 - all P4 environnment variables like P4PORT, P4CHARSET, P4USER, P4CLIENT, ...
-- p4api specific option like:
+- np4 specific option like:
   * P4API_TIMEOUT: timeout in ms for p4 commands process
  
 Example:
@@ -92,7 +89,7 @@ const p4 = new P4({
 #### Change environment variables
 `setOpts(opt)` and `addOpts(opt)` allow you to set or merge environment variables.
 ``` javascript
-import {P4} from "p4api"
+import {P4} from "np4"
 const p4 = new P4({P4PORT: "p4server:1666"})
 
 p4.setOpts({env:{P4PORT: "newServer:1666"}})
@@ -108,7 +105,7 @@ Where:
 #### Marshal syntax commands
 ```cmd(p4Cmd, [input])``` and ```cmdSync(p4Cmd, [input])``` allow to execute any p4 command using Marshal syntax (global p4 option -G).
 ``` javascript
-import {P4} from "p4api"
+import {P4} from "np4"
 const p4 = new P4({P4PORT: "p4server:1666"})
 
 // Asynchro mode
@@ -157,14 +154,14 @@ Both raw methods return result as the following structure:
 
 ### Error handling
 If p4 client can not be executed (perforce not installed, bad path variable, ...), cmd is rejected and cmdSync 
-is throwed with a ```P4.Error``` ```Error``` instance.
+is throwed with a ```P4Error``` ```Error``` instance.
 
 When timeout is reached, cmd is rejected and cmdSync is throwed 
-with a ```P4.TimeoutError``` ```Error``` instance 
+with a ```P4TimeoutError``` ```Error``` instance 
 with message like ```'Timeout <timeout>ms reached'``` 
 
 ``` javascript
-import {P4} from "p4api";
+import {P4} from "np4";
 let p4 = new P4({P4PORT: "p4server:1666", P4API_TIMEOUT: 5000});
 
 function P4Error(msg) {
@@ -196,14 +193,11 @@ async function p4(cmd, input) {
 }
 ```
 
-#### Cancellation feature
-A promise returned by p4.cmd() can be canceled with ```cancel()``` method, killing launched p4 process.
-
 <a name="Examples"></a>
 ## Examples
 ### List of depots
 ``` javascript
-import {P4} from "p4api";
+import {P4} from "np4";
 let p4 = new P4({P4PORT: "p4server:1666"});
     
 p4.cmd("depots").then(function(out){console.log(out);});

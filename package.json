@@ -1,8 +1,9 @@
 {
-  "name": "p4api",
-  "version": "3.3.2",
-  "description": "Simple Perforce API",
   "main": "lib/p4api.js",
+  "name": "np4",
+  "version": "1.0.0",
+  "description": "Node Perforce API",
+  "homepage": "https://github.com/Avalanche-Studios/np4",
   "files": [
     "lib"
   ],
@@ -14,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Pisamad/p4api.git"
+    "url": "https://github.com/Avalanche-Studios/np4.git"
   },
   "keywords": [
     "perforce",
@@ -22,10 +23,13 @@
     "javascript",
     "marshal"
   ],
-  "author": "pisamad",
+  "author": "Simon Holmberg <simon.holmberg@avalanchestudios.se>",
+  "contributors": [
+    "pisamad"
+  ],
   "license": "BSD-3-Clause",
   "bugs": {
-    "url": "https://github.com/Pisamad/p4api/issues"
+    "url": "https://github.com/Avalanche-Studios/np4/issues"
   },
   "dependencies": {
     "bluebird": "^3.7.1",
