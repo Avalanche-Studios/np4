@@ -3,42 +3,48 @@
  * Use of this source code is governed by a BSD-style
  * license that can be found in the LICENSE file.
  */
-import Q from 'bluebird'
 import { assign, extend } from 'lodash'
-import { spawn, spawnSync } from 'child_process'
+import { spawn, spawnSync, ChildProcessWithoutNullStreams, ChildProcess } from 'child_process'
 import stream from 'stream'
 
-import { shlex, convertOut, writeMarshal, createErrorType } from './helpers'
+import { shlex, convertOut, writeMarshal } from './helpers'
 
-// Allow promise cancellation
-Q.config({
-  cancellation: true
-})
+export class P4TimeoutError extends Error {
+  timeout: number
 
-export const P4apiTimeoutError = createErrorType('P4apiTimeoutError', function (timeout) {
-  this.timeout = timeout
-  this.message = 'Timeout ' + timeout + 'ms reached.'
-})
+  constructor(timeout: number) {
+    super()
+    this.timeout = timeout
+    this.message = 'Timeout ' + timeout + 'ms reached.'
+  }
+}
 
-export const P4apiError = createErrorType('P4apiError', function (message) {
-  this.message = 'P4 execution error'
-})
+export class P4Error extends Error {
+  message = 'P4 execution error'
+}
 
-class SimpleStream extends stream {
-  constructor (arg) {
+export class SimpleStream extends stream.Writable {
+  arg: any
+
+  constructor(arg: any) {
     super()
     this.arg = arg
   }
 
-  write (s) {
-    this.arg.input = Buffer.concat([this.arg.input, Buffer.from(s)])
+  _write(chunk: any, encoding: string, callback?: Function) {
+    this.arg.input = Buffer.concat([this.arg.input, Buffer.from(chunk)])
   }
 
-  end () {
+  end() {
   }
 }
 
 export class P4 {
+  debug: boolean
+  cwd: string
+  globalOptions: string[] = [ ]
+  options: Record<string, any>
+
   constructor (p4set = {}, debug = false) {
     this.debug = debug
     this.cwd = process.cwd()
@@ -62,7 +68,7 @@ export class P4 {
    * @param {object} opts - The options object
    * @returns {object} this
    */
-  setOpts (opts) {
+  setOpts (opts: Record<string, any>) {
     Object.keys(opts).forEach(key => {
       if (!(key === 'cwd')) {
         this.options[key] = opts[key]
@@ -71,7 +77,7 @@ export class P4 {
     })
   }
 
-  addOpts (opts) {
+  addOpts (opts: Record<string, any>) {
     Object.keys(opts).forEach(key => {
       if (!(key === 'cwd')) {
         this.options[key] = extend(this.options[key] || {}, opts[key])
@@ -94,12 +100,12 @@ export class P4 {
     }
   }
 
-  static _formatResult (command, dataOut, dataErr) {
+  static _formatResult (command: string, dataOut: any, dataErr: Buffer) {
     // Format the result  like an object :
     // {'stat':[{},{},...], 'error':[{},{},...],
     //  'value':{'code':'text' or 'binary', 'data':'...'},
     // 'prompt':'...'}
-    const result = {}
+    const result: any = {}
     const dataOutLength = dataOut.length
 
     for (let i = 0, len = dataOutLength; i < len; i++) {
@@ -137,34 +143,39 @@ export class P4 {
     return result
   }
 
-  _execCmd (p4Cmd, reject, onCancel) {
-    const result = {
+  _execCmd(p4Cmd: string[], reject: (reason?: any) => void) {
+    let result: {
       timeout: {
-        handle: null,
-        fired: false
+        fired: boolean,
+        handle: ReturnType<typeof setTimeout> | null
       },
-      child: null
+      child: ChildProcess
+    } = {
+      timeout: {
+        fired: false,
+        handle: null
+      },
+      child: spawn(this.options.binPath + 'p4', p4Cmd, this.options)
     }
+
     if (this.options.env.P4API_TIMEOUT > 0) {
-      result.timeout.handle = setTimeout(function () {
+      result.timeout.handle = setTimeout(() => {
         result.timeout.fired = true
         result.timeout.handle = null
         result.child.kill()
       }, this.options.env.P4API_TIMEOUT)
     }
 
-    result.child = spawn(this.options.binPath + 'p4', p4Cmd, this.options)
-
-    onCancel(() => {
-      result.child.kill()
-    })
+    // onCancel(() => {
+    //   result.child.kill()
+    // })
 
     result.child.on('error', () => {
-      if (result.timeout.handle !== null) {
+      if (result.timeout.handle) {
         clearTimeout(result.timeout.handle)
         result.timeout.handle = null
       }
-      reject(new P4apiError())
+      reject(new P4Error())
     })
 
     return result
@@ -175,29 +186,33 @@ export class P4 {
    * @param {string} command - The command to run
    * @param {object} dataIn - object to convert to marshal and to passe to P4 stdin
    */
-  cmd (command, dataIn) {
-    return new Q((resolve, reject, onCancel) => {
+  cmd(command: string, dataIn: object) {
+    return new Promise((resolve, reject) => {
       let dataOut = Buffer.alloc(0)
       let dataErr = Buffer.alloc(0)
 
       const p4Cmd = ['-G'].concat(this.globalOptions, shlex(command))
-      const { timeout, child } = this._execCmd(p4Cmd, reject, onCancel)
+      const { timeout, child } = this._execCmd(p4Cmd, reject)
 
-      if (dataIn) {
+      if (dataIn && child.stdin) {
         writeMarshal(dataIn, child.stdin)
       }
 
-      child.stdout.on('data', data => {
-        dataOut = Buffer.concat([dataOut, data])
-      })
+      if (child.stdout) {
+        child.stdout.on('data', data => {
+          dataOut = Buffer.concat([dataOut, data])
+        })
+      }
 
-      child.stderr.on('data', data => {
-        dataErr = Buffer.concat([dataOut, data])
-      })
+      if (child.stderr) {
+        child.stderr.on('data', data => {
+          dataErr = Buffer.concat([dataOut, data])
+        })
+      }
 
       child.on('close', () => {
         if (timeout.fired) {
-          reject(new P4apiTimeoutError(this.options.env.P4API_TIMEOUT))
+          reject(new P4TimeoutError(this.options.env.P4API_TIMEOUT))
           return
         }
 
@@ -206,8 +221,7 @@ export class P4 {
           timeout.handle = null
         }
 
-        dataOut = convertOut(dataOut)
-        const result = P4._formatResult(command, dataOut, dataErr)
+        const result = P4._formatResult(command, convertOut(dataOut), dataErr)
         if (this.debug) {
           console.log('-P4 ', command, JSON.stringify(result))
         }
@@ -221,7 +235,7 @@ export class P4 {
    * @param {string} command - The command to run
    * @param {object} dataIn - object to convert to marshal and to passe to P4 stdin
    */
-  cmdSync (command, dataIn) {
+  cmdSync (command: string, dataIn: object) {
     this.options.input = Buffer.alloc(0)
     if (dataIn) {
       writeMarshal(dataIn, new SimpleStream(this.options))
@@ -235,9 +249,9 @@ export class P4 {
     const child = spawnSync(this.options.binPath + 'p4', p4Cmd, this.options)
     if (child.error !== undefined) {
       if (child.signal != null) {
-        throw new P4apiTimeoutError(this.options.timeout)
+        throw new P4TimeoutError(this.options.timeout)
       }
-      throw new P4apiError(child.error)
+      throw new P4Error(child.error.toString())
     }
 
     const dataOut = convertOut(child.stdout)
@@ -254,36 +268,40 @@ export class P4 {
    * @param {string} command - The command to run
    * @param {object} dataIn - object to convert to marshal and to passe to P4 stdin
    */
-  rawCmd (command, dataIn) {
-    return new Q((resolve, reject, onCancel) => {
+  rawCmd(command: string, dataIn: object) {
+    return new Promise((resolve, reject) => {
       let dataOut = Buffer.alloc(0)
       let dataErr = Buffer.alloc(0)
 
-      const p4Cmd = [].concat(this.globalOptions, shlex(command))
-      let { timeoutHandle, timeoutFired, child } = this._execCmd(p4Cmd, reject, onCancel)
+      const p4Cmd = (<string[]>[]).concat(this.globalOptions, shlex(command))
+      let { timeout, child } = this._execCmd(p4Cmd, reject)
 
-      if (dataIn) {
+      if (dataIn && child.stdin) {
         child.stdin.write(dataIn)
         child.stdin.end()
       }
 
-      child.stdout.on('data', data => {
-        dataOut = Buffer.concat([dataOut, data])
-      })
+      if (child.stdout) {
+        child.stdout.on('data', data => {
+          dataOut = Buffer.concat([dataOut, data])
+        })
+      }
 
-      child.stderr.on('data', data => {
-        dataErr = Buffer.concat([dataOut, data])
-      })
+      if (child.stderr) {
+        child.stderr.on('data', data => {
+          dataErr = Buffer.concat([dataOut, data])
+        })
+      }
 
       child.on('close', () => {
-        if (timeoutFired) {
-          reject(new P4apiTimeoutError(this.options.env.P4API_TIMEOUT))
+        if (timeout.fired) {
+          reject(new P4TimeoutError(this.options.env.P4API_TIMEOUT))
           return
         }
 
-        if (timeoutHandle !== null) {
-          clearTimeout(timeoutHandle)
-          timeoutHandle = null
+        if (timeout.handle !== null) {
+          clearTimeout(timeout.handle)
+          timeout.handle = null
         }
 
         const result = {
@@ -302,7 +320,7 @@ export class P4 {
    * @param {string} command - The command to run
    * @param {object} dataIn - object to convert to marshal and to passe to P4 stdin
    */
-  rawCmdSync (command, dataIn) {
+  rawCmdSync (command: string, dataIn: object) {
     this.options.input = Buffer.alloc(0)
     if (dataIn) {
       this.options.input = Buffer.from(dataIn)
@@ -312,13 +330,13 @@ export class P4 {
       this.options.timeout = this.options.env.P4API_TIMEOUT
     }
 
-    const p4Cmd = [].concat(this.globalOptions, shlex(command))
+    const p4Cmd = [ ...this.globalOptions, ...shlex(command) ]
     const child = spawnSync(this.options.binPath + 'p4', p4Cmd, this.options)
     if (child.error !== undefined) {
       if (child.signal != null) {
-        throw new P4apiTimeoutError(this.options.timeout)
+        throw new P4TimeoutError(this.options.timeout)
       }
-      throw new P4apiError(child.error)
+      throw new P4Error(child.error.toString())
     }
 
     const dataOut = child.stdout
@@ -336,8 +354,8 @@ export class P4 {
   /**
    * Launch a P4VC cmd
    */
-  async visual (cmd) {
-    let options = []
+  async visual(cmd: string) {
+    let options: any = []
 
     if (this.options.env.P4PORT) options = options.concat(['-p', this.options.env.P4PORT])
     if (this.options.env.P4USER) options = options.concat(['-u', this.options.env.P4USER])
@@ -345,46 +363,53 @@ export class P4 {
 
     const visualCmd = options.concat(shlex(cmd))
 
-    return new Q((resolve) => {
+    return new Promise((resolve) => {
       spawn(this.options.binPath + 'p4vc', visualCmd).on('close', resolve)
     })
   };
-}
-
-P4.prototype.Error = P4apiError
-P4.prototype.TimeoutError = P4apiTimeoutError
-
-// Named values for error severities returned by
-P4.prototype.SEVERITY = {
-  E_EMPTY: 0, // nothing yet
-  E_INFO: 1, // something good happened
-  E_WARN: 2, // something not good happened
-  E_FAILED: 3, // user did something wrong
-  E_FATAL: 4 // system broken -- nothing can continue
-}
-
-// Named values for generic error codes returned by
-P4.prototype.GENERIC = {
-  EV_NONE: 0, // misc
-
-  // The fault of the user
-  EV_USAGE: 0x01, // request not consistent with dox
-  EV_UNKNOWN: 0x02, // using unknown entity
-  EV_CONTEXT: 0x03, // using entity in wrong context
-  EV_ILLEGAL: 0x04, // trying to do something you can't
-  EV_NOTYET: 0x05, // something must be corrected first
-  EV_PROTECT: 0x06, // protections prevented operation
-
-  // No fault at all
-  EV_EMPTY: 0x11, // action returned empty results
-
-  // not the fault of the user
-  EV_FAULT: 0x21, // inexplicable program fault
-  EV_CLIENT: 0x22, // client side program errors
-  EV_ADMIN: 0x23, // server administrative action required
-  EV_CONFIG: 0x24, // client configuration inadequate
-  EV_UPGRADE: 0x25, // client or server too old to interact
-  EV_COMM: 0x26, // communications error
-  EV_TOOBIG: 0x27 // not even Perforce can handle this much
 
 }
+
+// P4.prototype.Error = P4apiError
+// P4.prototype.TimeoutError = P4apiTimeoutError
+
+export namespace P4
+{
+  // export { P4apiError as Error };
+  // export { P4apiTimeoutError as TimeoutError }
+
+  // Named values for error severities returned by
+  export enum SEVERITY {
+    E_EMPTY = 0, // nothing yet
+    E_INFO = 1, // something good happened
+    E_WARN = 2, // something not good happened
+    E_FAILED = 3, // user did something wrong
+    E_FATAL = 4 // system broken -- nothing can continue
+  }
+
+  // Named values for generic error codes returned by
+  export enum GENERIC {
+    EV_NONE = 0, // misc
+
+    // The fault of the user
+    EV_USAGE = 0x01, // request not consistent with dox
+    EV_UNKNOWN = 0x02, // using unknown entity
+    EV_CONTEXT = 0x03, // using entity in wrong context
+    EV_ILLEGAL = 0x04, // trying to do something you can't
+    EV_NOTYET = 0x05, // something must be corrected first
+    EV_PROTECT = 0x06, // protections prevented operation
+
+    // No fault at all
+    EV_EMPTY = 0x11, // action returned empty results
+
+    // not the fault of the user
+    EV_FAULT = 0x21, // inexplicable program fault
+    EV_CLIENT = 0x22, // client side program errors
+    EV_ADMIN = 0x23, // server administrative action required
+    EV_CONFIG = 0x24, // client configuration inadequate
+    EV_UPGRADE = 0x25, // client or server too old to interact
+    EV_COMM = 0x26, // communications error
+    EV_TOOBIG = 0x27 // not even Perforce can handle this much
+  }
+}
+

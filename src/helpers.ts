@@ -1,5 +1,6 @@
 import _ from 'lodash'
 import PyMarshal from 'py-marshal'
+import * as stream from 'stream'
 
 /**
  * A function for parsing shell-like quoted arguments into an array,
@@ -7,18 +8,18 @@ import PyMarshal from 'py-marshal'
  * and parses them out for you. Returns false on failure (from unbalanced quotes).
  * @param {string} str
  */
-export function shlex (str) {
+export function shlex(str: string) {
   const args = _.compact(str.split(' '))
   const out = []
   let lookForClose = -1
   let quoteOpen = false
 
-  for (const x in args) {
+  for (let x = 0; x < args.length; x++) {
     let arg = args[x]
     let escSeq = false
     let underQuote = false
 
-    for (const y in arg) {
+    for (let y = 0; y < arg.length; y++) {
       if (escSeq) {
         escSeq = false
       } else if (arg[y] === '\\') {
@@ -34,13 +35,13 @@ export function shlex (str) {
     } else if (quoteOpen && lookForClose === -1) {
       lookForClose = x
     } else if (!quoteOpen && lookForClose >= 0) {
-      let block = args.slice(lookForClose, parseInt(x) + 1).join(' ')
+      let block = args.slice(lookForClose, x + 1).join(' ')
 
       let escSeq = false
 
       const quotes = []
 
-      for (const y in block) {
+      for (let y = 0; y < block.length; y++) {
         if (escSeq) {
           escSeq = false
         } else if (block[y] === '\\') {
@@ -52,8 +53,8 @@ export function shlex (str) {
       const parts = []
 
       parts.push(block.substr(0, quotes[0]))
-      parts.push(block.substr(parseInt(quotes[0]) + 1, quotes[1] - (parseInt(quotes[0]) + 1)))
-      parts.push(block.substr(parseInt(quotes[1]) + 1))
+      parts.push(block.substr(quotes[0] + 1, quotes[1] - (quotes[0] + 1)))
+      parts.push(block.substr(quotes[1] + 1))
       block = parts.join('')
       out.push(block)
       lookForClose = -1
@@ -67,9 +68,9 @@ export function shlex (str) {
  * @param {string} outString - The output from P4 (String or Buffer)
  * @returns {object} the result
  */
-export function convertOut (outString) {
+export function convertOut(outString: Buffer | string) {
   const buf = Buffer.isBuffer(outString) ? outString : Buffer.from(outString)
-  const result = []
+  const result: any = []
   let i = 0
   let prompt = ''
   const bufLength = buf.length
@@ -98,45 +99,11 @@ export function convertOut (outString) {
  * @param {SimpleStream} inputStream - A writable stream where result will be sent
  * @returns {string} the result
  */
-export function writeMarshal (inObject, inputStream) {
+export function writeMarshal (inObject: object, inputStream: stream.Writable) {
   if (typeof inObject === 'string') {
     inputStream.write(Buffer.from(inObject))
   } else {
     inputStream.write(PyMarshal.writeToBuffer(inObject))
   }
   inputStream.end()
-}
-
-/**
- * Create a Error handler
- * @param name (String) Error Name
- * @param init (Function) Error handle
- * @returns {E}
- *
- * Example :
- * var NameError = createErrorType('NameError', function (name, invalidChar) {
- *  this.message = 'The name ' + name + ' may not contain ' + invalidChar;
- * });
- *
- * var UnboundError = createErrorType('UnboundError', function (variableName) {
- *  this.message = 'Variable ' + variableName + ' is not bound';
- * });
- *
- * Ref : https://stackoverflow.com/questions/1382107/whats-a-good-way-to-extend-error-in-javascript
- */
-export function createErrorType (name, init) {
-  function E (message) {
-    if (!Error.captureStackTrace) {
-      this.stack = (new Error()).stack
-    } else {
-      Error.captureStackTrace(this, this.constructor)
-    }
-    this.message = message
-    init && init.apply(this, arguments)
-  }
-
-  E.prototype = new Error()
-  E.prototype.name = name
-  E.prototype.constructor = E
-  return E
 }

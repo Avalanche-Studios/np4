@@ -1,15 +1,15 @@
 {
-  "main": "lib/p4api.js",
   "name": "np4",
   "version": "1.0.0",
   "description": "Node Perforce API",
   "homepage": "https://github.com/Avalanche-Studios/np4",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "files": [
     "lib"
   ],
   "scripts": {
-    "build": "webpack --env.build && npm run test",
-    "dev": "webpack --progress --colors --watch --env.dev",
+    "prepare": "tsc",
     "test": "mocha --timeout 0 --require @babel/register --colors    ./test/*.spec.js",
     "test:watch": "mocha --timeout 0 --require @babel/register --colors -w ./test/*.spec.js"
   },
@@ -20,7 +20,7 @@
   "keywords": [
     "perforce",
     "p4",
-    "javascript",
+    "typescript",
     "marshal"
   ],
   "author": "Simon Holmberg <simon.holmberg@avalanchestudios.se>",
@@ -32,33 +32,17 @@
     "url": "https://github.com/Avalanche-Studios/np4/issues"
   },
   "dependencies": {
-    "bluebird": "^3.7.1",
     "lodash": "^4.17.15",
     "py-marshal": "^1.0.2",
     "shelljs": "^0.8.3"
   },
   "devDependencies": {
-    "@babel/cli": "^7.7.0",
-    "@babel/core": "^7.7.2",
-    "@babel/plugin-transform-runtime": "^7.6.2",
-    "@babel/preset-env": "^7.7.1",
-    "@babel/register": "^7.7.0",
-    "@babel/runtime": "^7.7.2",
-    "babel-eslint": "^10.0.3",
-    "babel-loader": "^8.0.6",
+    "@types/lodash": "^4.14.149",
+    "@types/node": "^13.11.1",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
-    "clean-webpack-plugin": "^3.0.0",
-    "eslint": "^6.6.0",
-    "eslint-config-standard": "^14.1.0",
-    "eslint-loader": "^3.0.2",
-    "eslint-plugin-import": "^2.18.2",
-    "eslint-plugin-node": "^10.0.0",
-    "eslint-plugin-promise": "^4.2.1",
-    "eslint-plugin-standard": "^4.0.1",
     "mocha": "^6.2.2",
-    "webpack": "^4.41.2",
-    "webpack-cli": "^3.3.10",
+    "typescript": "^3.8.3",
     "yargs": "^14.2.0"
   }
 }
