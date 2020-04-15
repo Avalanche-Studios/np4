@@ -9,6 +9,7 @@
     "lib"
   ],
   "scripts": {
+    "build": "tsc",
     "prepare": "tsc",
     "test": "mocha --timeout 0 --require @babel/register --colors    ./test/*.spec.js",
     "test:watch": "mocha --timeout 0 --require @babel/register --colors -w ./test/*.spec.js"

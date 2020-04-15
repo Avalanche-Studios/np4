@@ -10,11 +10,8 @@ import stream from 'stream'
 import { shlex, convertOut, writeMarshal } from './helpers'
 
 export class P4TimeoutError extends Error {
-  timeout: number
-
   constructor(timeout: number) {
     super()
-    this.timeout = timeout
     this.message = 'Timeout ' + timeout + 'ms reached.'
   }
 }
@@ -186,12 +183,12 @@ export class P4 {
    * @param {string} command - The command to run
    * @param {object} dataIn - object to convert to marshal and to passe to P4 stdin
    */
-  cmd(command: string, dataIn: object) {
+  cmd(command: string, dataIn?: object) {
     return new Promise((resolve, reject) => {
       let dataOut = Buffer.alloc(0)
       let dataErr = Buffer.alloc(0)
 
-      const p4Cmd = ['-G'].concat(this.globalOptions, shlex(command))
+      const p4Cmd = [ '-G', ...this.globalOptions, ...shlex(command) ]
       const { timeout, child } = this._execCmd(p4Cmd, reject)
 
       if (dataIn && child.stdin) {
@@ -245,7 +242,7 @@ export class P4 {
       this.options.timeout = this.options.env.P4API_TIMEOUT
     }
 
-    const p4Cmd = ['-G'].concat(this.globalOptions, shlex(command))
+    const p4Cmd = [ '-G', ...this.globalOptions, ...shlex(command) ]
     const child = spawnSync(this.options.binPath + 'p4', p4Cmd, this.options)
     if (child.error !== undefined) {
       if (child.signal != null) {
@@ -273,7 +270,7 @@ export class P4 {
       let dataOut = Buffer.alloc(0)
       let dataErr = Buffer.alloc(0)
 
-      const p4Cmd = (<string[]>[]).concat(this.globalOptions, shlex(command))
+      const p4Cmd = [ ...this.globalOptions, ...shlex(command) ]
       let { timeout, child } = this._execCmd(p4Cmd, reject)
 
       if (dataIn && child.stdin) {
