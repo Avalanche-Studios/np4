@@ -90,6 +90,22 @@ export function convertOut(outString: Buffer | string) {
     result.push(decoder.read())
   }
 
+  // Convert the annoying numbered dictionary keys syntax into arrays
+  for (let item of result) {
+    for (let [k, v] of Object.entries(item)) {
+      const match = k.match(/(\w+)(\d+)/)
+      if (match) {
+        const newKey = match[1]
+        const i = match[2]
+        if (!(newKey in item)) {
+          item[newKey] = [ ]
+        }
+        item[newKey][i] = v
+        delete item[k]
+      }
+    }
+  }
+
   return result
 }
 
@@ -103,6 +119,19 @@ export function writeMarshal (inObject: object, inputStream: stream.Writable) {
   if (typeof inObject === 'string') {
     inputStream.write(Buffer.from(inObject))
   } else {
+    const obj = inObject as Record<string, any>
+
+    // Convert arrays back into numbered keys
+    for (let [k, v] of Object.entries(obj)) {
+      if (v instanceof Array) {
+        const array = v as Array<any>
+        for (let [i, value] of array.entries()) {
+          obj[`${k}${i}`] = value
+        }
+        delete obj[k]
+      }
+    }
+
     inputStream.write(PyMarshal.writeToBuffer(inObject))
   }
   inputStream.end()

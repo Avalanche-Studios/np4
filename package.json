@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "description": "Node Perforce API",
   "homepage": "https://github.com/Avalanche-Studios/np4",
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "src/index.ts",
   "files": [
     "lib"
   ],
