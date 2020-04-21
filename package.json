@@ -3,14 +3,15 @@
   "version": "1.0.0",
   "description": "Node Perforce API",
   "homepage": "https://github.com/Avalanche-Studios/np4",
-  "main": "src/index.ts",
   "files": [
-    "lib"
+    "dist"
   ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "prepare": "tsc",
-    "test": "mocha --timeout 0 --require @babel/register --colors    ./test/*.spec.js",
+    "test": "mocha --timeout 0 --require @babel/register --colors ./test/*.spec.js",
     "test:watch": "mocha --timeout 0 --require @babel/register --colors -w ./test/*.spec.js"
   },
   "repository": {
