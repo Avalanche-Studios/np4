@@ -97,7 +97,7 @@ export function convertOut(outString: Buffer | string) {
       if (match) {
         const newKey = match[1]
         const i = match[2]
-        if (!(newKey in item)) {
+        if (!Array.isArray(item[newKey])) {
           item[newKey] = [ ]
         }
         item[newKey][i] = v
