@@ -57,6 +57,15 @@ export class P4 {
     this._setGlobalOptions()
   }
 
+  setEnv(env: Record<string, any>) {
+    assign(this.options.env, env)
+    this._setGlobalOptions()
+  }
+
+  getEnv(env: string): any {
+    return this.options.env[env]
+  }
+
   /**
    * Set options for the exec context.
    * Supports all optinos supported by child_process.exec.
