@@ -93,7 +93,7 @@ export function convertOut(outString: Buffer | string) {
   // Convert the annoying numbered dictionary keys syntax into arrays
   for (let item of result) {
     for (let [k, v] of Object.entries(item)) {
-      const match = k.match(/(\w+)(\d+)/)
+      const match = k.match(/(\w+?)(\d+)/)
       if (match) {
         const newKey = match[1]
         const i = match[2]
