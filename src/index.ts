@@ -274,7 +274,7 @@ export class P4 {
    * @param {string} command - The command to run
    * @param {object} dataIn - object to convert to marshal and to passe to P4 stdin
    */
-  rawCmd(command: string, dataIn: object) {
+  rawCmd(command: string, dataIn?: object) {
     return new Promise((resolve, reject) => {
       let dataOut = Buffer.alloc(0)
       let dataErr = Buffer.alloc(0)
