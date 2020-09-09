@@ -33,7 +33,7 @@
     "url": "https://github.com/Avalanche-Studios/np4/issues"
   },
   "dependencies": {
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "py-marshal": "^1.0.2",
     "shelljs": "^0.8.3"
   },
