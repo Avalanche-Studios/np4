@@ -198,26 +198,36 @@ export class P4 {
       let dataErr = Buffer.alloc(0)
 
       const p4Cmd = [ '-G', ...this.globalOptions, ...shlex(command) ]
+      console.log(`NP4: cmd ${p4Cmd.join(' ')}`)
       const { timeout, child } = this._execCmd(p4Cmd, reject)
+      console.log(`NP4: exec'd`)
 
       if (dataIn && child.stdin) {
+        console.log(`NP4: writing marshal`)
         writeMarshal(dataIn, child.stdin)
+        console.log(`NP4: marshal written`)
+      } else {
+        console.log(`NP4: no marshal`)
       }
 
       if (child.stdout) {
         child.stdout.on('data', data => {
+          console.log(`NP4: stdout`, data)
           dataOut = Buffer.concat([dataOut, data])
         })
       }
 
       if (child.stderr) {
         child.stderr.on('data', data => {
+          console.log(`NP4: stderr`, data)
           dataErr = Buffer.concat([dataOut, data])
         })
       }
 
       child.on('close', () => {
+        console.log(`NP4: close`)
         if (timeout.fired) {
+        console.log(`NP4: timeout fired`)
           reject(new P4TimeoutError(this.options.env.P4API_TIMEOUT))
           return
         }
@@ -227,10 +237,13 @@ export class P4 {
           timeout.handle = null
         }
 
+        console.log(`NP4: formatting result`)
         const result = P4._formatResult(command, convertOut(dataOut), dataErr)
+        console.log(`NP4: result`, result)
         if (this.debug) {
           console.log('-P4 ', command, JSON.stringify(result))
         }
+        console.log(`NP4: resolving`)
         resolve(result)
       })
     })
